@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "altmanager",
+  "version": "${version}",
+  "name": "AltManager",
+  "description": "Local nickname manager for quickly switching offline accounts from the Minecraft main menu.",
+  "contact": {
+    "homepage": "https://github.com/HikoloveR",
+    "repo": "https://github.com/HikoloveR/AltManager"
+  },
+  "license": "All-Rights-Reserved",
+  "icon": "assets/altmanager/icon.png",
+  "environment": "client",
+  "mixins": [
+    "altmanager.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
