@@ -9,7 +9,8 @@
   ],
   "contact": {
     "homepage": "https://github.com/HikoloveR",
-    "repo": "https://github.com/HikoloveR/AltManager"
+    "repo": "https://github.com/HikoloveR/AltManager",
+    "sources": "https://github.com/HikoloveR/AltManager"
   },
   "license": "All-Rights-Reserved",
   "icon": "assets/altmanager/icon.png",
