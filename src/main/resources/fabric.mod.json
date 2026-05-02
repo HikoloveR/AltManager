@@ -4,6 +4,9 @@
   "version": "${version}",
   "name": "AltManager",
   "description": "Local nickname manager for quickly switching offline accounts from the Minecraft main menu.",
+  "authors": [
+    "HikoloveR"
+  ],
   "contact": {
     "homepage": "https://github.com/HikoloveR",
     "repo": "https://github.com/HikoloveR/AltManager"
