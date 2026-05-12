@@ -1,6 +1,7 @@
 # Gradle
 .gradle/
 build/
+versions/*/build/
 
 # Minecraft/Fabric runtime
 run/

@@ -1,6 +1,7 @@
 package ru.fakefun.altmanager.screen;
 
 import net.minecraft.client.MinecraftClient;
+//? if >=1.21.9
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -107,12 +108,22 @@ public class AltManagerScreen extends Screen {
     }
 
     @Override
+    //? if >=1.21.9 {
     public boolean mouseClicked(Click click, boolean doubled) {
-        if (click.button() == 0) {
-            int clickedIndex = getClickedAccountIndex(click.x(), click.y());
+        return handleAccountClick(click.x(), click.y(), click.button(), doubled) || super.mouseClicked(click, doubled);
+    }
+    //?} else {
+    /*public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return handleAccountClick(mouseX, mouseY, button, false) || super.mouseClicked(mouseX, mouseY, button);
+    }
+    *///?}
+
+    private boolean handleAccountClick(double mouseX, double mouseY, int button, boolean doubled) {
+        if (button == 0) {
+            int clickedIndex = getClickedAccountIndex(mouseX, mouseY);
             if (clickedIndex >= 0) {
                 String account = this.store.accounts().get(clickedIndex);
-                if (isDeleteButtonClicked(click.x(), click.y(), clickedIndex)) {
+                if (isDeleteButtonClicked(mouseX, mouseY, clickedIndex)) {
                     this.store.remove(account);
                     this.lastClickIndex = -1;
                     clampScroll(Math.max(1, getListHeight() / ROW_HEIGHT));
@@ -135,7 +146,7 @@ public class AltManagerScreen extends Screen {
             }
         }
 
-        return super.mouseClicked(click, doubled);
+        return false;
     }
 
     @Override
