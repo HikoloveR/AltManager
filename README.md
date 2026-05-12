@@ -1,6 +1,3 @@
-- Mod version: 1.1.1
-- Minecraft: 1.21.11
-- Loader: Fabric
+- My server: play.FakeFun.ru
+- Version server: 1.21.8 - 1.16.5
 - Author: HikoloveR
-- Website: https://github.com/HikoloveR
-- Source code: https://github.com/HikoloveR/Button-Clear
