@@ -22,10 +22,12 @@ public final class AltAccountStore {
     private static final Path SAVE_PATH = FabricLoader.getInstance().getConfigDir().resolve("altmanager_accounts.json");
 
     private final List<String> accounts = new ArrayList<>();
+    private final List<String> pinnedAccounts = new ArrayList<>();
     private String selectedAccount = "";
 
     public void load() {
         accounts.clear();
+        pinnedAccounts.clear();
         selectedAccount = "";
 
         if (!Files.exists(SAVE_PATH)) {
@@ -34,15 +36,29 @@ public final class AltAccountStore {
 
         try (Reader reader = Files.newBufferedReader(SAVE_PATH)) {
             SaveData data = GSON.fromJson(reader, SaveData.class);
-            if (data == null || data.accounts == null) {
+            if (data == null) {
                 return;
             }
 
-            Set<String> seen = new LinkedHashSet<>();
-            for (String account : data.accounts) {
-                String normalized = normalize(account);
-                if (!normalized.isEmpty() && seen.add(normalized.toLowerCase(Locale.ROOT))) {
-                    accounts.add(normalized);
+            if (data.pinnedAccounts != null) {
+                for (String pinned : data.pinnedAccounts) {
+                    String normalized = normalize(pinned);
+                    if (!normalized.isEmpty()) {
+                        String key = normalized.toLowerCase(Locale.ROOT);
+                        if (!pinnedAccounts.contains(key)) {
+                            pinnedAccounts.add(key);
+                        }
+                    }
+                }
+            }
+
+            if (data.accounts != null) {
+                Set<String> seen = new LinkedHashSet<>();
+                for (String account : data.accounts) {
+                    String normalized = normalize(account);
+                    if (!normalized.isEmpty() && seen.add(normalized.toLowerCase(Locale.ROOT))) {
+                        accounts.add(normalized);
+                    }
                 }
             }
 
@@ -50,8 +66,10 @@ public final class AltAccountStore {
             if (!accounts.contains(selectedAccount)) {
                 selectedAccount = "";
             }
+            reorder();
         } catch (IOException | JsonSyntaxException ignored) {
             accounts.clear();
+            pinnedAccounts.clear();
             selectedAccount = "";
         }
     }
@@ -62,6 +80,7 @@ public final class AltAccountStore {
             try (Writer writer = Files.newBufferedWriter(SAVE_PATH)) {
                 SaveData data = new SaveData();
                 data.accounts = accounts;
+                data.pinnedAccounts = pinnedAccounts;
                 data.selectedAccount = selectedAccount;
                 GSON.toJson(data, writer);
             }
@@ -90,21 +109,102 @@ public final class AltAccountStore {
         }
 
         accounts.add(normalized);
+        reorder();
         save();
         return true;
     }
 
-    public void clear() {
+    public void reorder() {
+        List<String> pinned = new ArrayList<>();
+        List<String> unpinned = new ArrayList<>();
+        
+        for (String pin : pinnedAccounts) {
+            for (String account : accounts) {
+                if (account.equalsIgnoreCase(pin)) {
+                    pinned.add(account);
+                    break;
+                }
+            }
+        }
+        
+        for (String account : accounts) {
+            if (isPinned(account) && !pinned.contains(account)) {
+                pinned.add(account);
+            }
+        }
+        
+        for (String account : accounts) {
+            if (!isPinned(account)) {
+                unpinned.add(account);
+            }
+        }
+        
         accounts.clear();
-        selectedAccount = "";
+        accounts.addAll(pinned);
+        accounts.addAll(unpinned);
+    }
+
+    public int getPinnedCount() {
+        int count = 0;
+        for (String account : accounts) {
+            if (isPinned(account)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public void movePinned(int fromIndex, int toIndex) {
+        if (fromIndex >= 0 && fromIndex < accounts.size() && toIndex >= 0 && toIndex < accounts.size()) {
+            String fromAcc = accounts.get(fromIndex);
+            String toAcc = accounts.get(toIndex);
+            String fromKey = normalize(fromAcc).toLowerCase(Locale.ROOT);
+            String toKey = normalize(toAcc).toLowerCase(Locale.ROOT);
+
+            int fromPinIdx = pinnedAccounts.indexOf(fromKey);
+            int toPinIdx = pinnedAccounts.indexOf(toKey);
+            if (fromPinIdx != -1 && toPinIdx != -1) {
+                String moved = pinnedAccounts.remove(fromPinIdx);
+                pinnedAccounts.add(toPinIdx, moved);
+                reorder();
+                save();
+            }
+        }
+    }
+
+    public boolean isPinned(String account) {
+        return pinnedAccounts.contains(normalize(account).toLowerCase(Locale.ROOT));
+    }
+
+    public void setPinned(String account, boolean pinned) {
+        String key = normalize(account).toLowerCase(Locale.ROOT);
+        if (pinned) {
+            if (!pinnedAccounts.contains(key)) {
+                pinnedAccounts.add(key);
+            }
+        } else {
+            pinnedAccounts.remove(key);
+        }
+        reorder();
+        save();
+    }
+
+    public void clear() {
+        accounts.removeIf(account -> !isPinned(account));
+        if (!accounts.contains(selectedAccount)) {
+            selectedAccount = "";
+        }
+        reorder();
         save();
     }
 
     public void remove(String account) {
         accounts.removeIf(existing -> existing.equalsIgnoreCase(account));
+        pinnedAccounts.remove(normalize(account).toLowerCase(Locale.ROOT));
         if (selectedAccount.equalsIgnoreCase(account)) {
             selectedAccount = "";
         }
+        reorder();
         save();
     }
 
@@ -158,6 +258,7 @@ public final class AltAccountStore {
 
     private static final class SaveData {
         private List<String> accounts = List.of();
+        private List<String> pinnedAccounts = List.of();
         private String selectedAccount = "";
     }
 }

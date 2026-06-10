@@ -27,6 +27,7 @@ public class AltManagerScreen extends Screen {
     private int scrollOffset;
     private long lastClickTime;
     private int lastClickIndex = -1;
+    private int draggedIndex = -1;
 
     public AltManagerScreen(Screen parent) {
         super(Text.literal("AltManager"));
@@ -101,8 +102,21 @@ public class AltManagerScreen extends Screen {
             int background = hovered ? 0x66555555 : 0x33000000;
             int color = selected ? 0xFF55FF55 : 0xFFFFFFFF;
 
+            boolean pinned = this.store.isPinned(account);
+            boolean pinHovered = hovered && mouseX >= listRight - 34 && mouseX <= listRight - 22 && mouseY >= rowTop + 5 && mouseY <= rowTop + 17;
+            int headColor = pinned ? 0xFFFF3838 : (pinHovered ? 0xFF888888 : 0xFF555555);
+            int needleColor = pinned ? 0xFFDDDDDD : (pinHovered ? 0xFF777777 : 0xFF444444);
+
             context.fill(listLeft, rowTop, listRight, rowTop + ROW_HEIGHT - 1, background);
             context.drawTextWithShadow(this.textRenderer, account, listLeft + 8, rowTop + 7, color);
+            
+            int pinX = listRight - 34;
+            int pinY = rowTop + 5;
+            context.fill(pinX + 3, pinY + 2, pinX + 8, pinY + 3, headColor);
+            context.fill(pinX + 4, pinY + 3, pinX + 7, pinY + 5, headColor);
+            context.fill(pinX + 3, pinY + 5, pinX + 8, pinY + 6, headColor);
+            context.fill(pinX + 5, pinY + 6, pinX + 6, pinY + 10, needleColor);
+            
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("x"), listRight - 12, rowTop + 7, 0xFFFF5555);
         }
     }
@@ -118,6 +132,52 @@ public class AltManagerScreen extends Screen {
     }
     *///?}
 
+    //? if >=1.21.9 {
+    @Override
+    public boolean mouseReleased(Click click) {
+        if (click.button() == 0) {
+            this.draggedIndex = -1;
+        }
+        return super.mouseReleased(click);
+    }
+
+    @Override
+    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
+        if (click.button() == 0 && this.draggedIndex >= 0) {
+            int hoverIndex = getClickedAccountIndex(click.x(), click.y());
+            int pinnedCount = this.store.getPinnedCount();
+            if (hoverIndex >= 0 && hoverIndex != this.draggedIndex && hoverIndex < pinnedCount && this.draggedIndex < pinnedCount) {
+                this.store.movePinned(this.draggedIndex, hoverIndex);
+                this.draggedIndex = hoverIndex;
+                return true;
+            }
+        }
+        return super.mouseDragged(click, deltaX, deltaY);
+    }
+    //?} else {
+    /*@Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            this.draggedIndex = -1;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (button == 0 && this.draggedIndex >= 0) {
+            int hoverIndex = getClickedAccountIndex(mouseX, mouseY);
+            int pinnedCount = this.store.getPinnedCount();
+            if (hoverIndex >= 0 && hoverIndex != this.draggedIndex && hoverIndex < pinnedCount && this.draggedIndex < pinnedCount) {
+                this.store.movePinned(this.draggedIndex, hoverIndex);
+                this.draggedIndex = hoverIndex;
+                return true;
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+    *///?}
+
     private boolean handleAccountClick(double mouseX, double mouseY, int button, boolean doubled) {
         if (button == 0) {
             int clickedIndex = getClickedAccountIndex(mouseX, mouseY);
@@ -125,9 +185,37 @@ public class AltManagerScreen extends Screen {
                 String account = this.store.accounts().get(clickedIndex);
                 if (isDeleteButtonClicked(mouseX, mouseY, clickedIndex)) {
                     this.store.remove(account);
+                    //? if >=1.21.11 {
+                    MinecraftClient.getInstance().getSoundManager().play(
+                            net.minecraft.client.sound.PositionedSoundInstance.ui(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK, 0.7f)
+                    );
+                    //?} else {
+                    /*MinecraftClient.getInstance().getSoundManager().play(
+                            net.minecraft.client.sound.PositionedSoundInstance.master(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK, 0.7f)
+                    );
+                    *///?}
                     this.lastClickIndex = -1;
                     clampScroll(Math.max(1, getListHeight() / ROW_HEIGHT));
                     return true;
+                }
+
+                if (isPinButtonClicked(mouseX, mouseY, clickedIndex)) {
+                    boolean currentlyPinned = this.store.isPinned(account);
+                    this.store.setPinned(account, !currentlyPinned);
+                    //? if >=1.21.11 {
+                    MinecraftClient.getInstance().getSoundManager().play(
+                            net.minecraft.client.sound.PositionedSoundInstance.ui(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK, 1.5f)
+                    );
+                    //?} else {
+                    /*MinecraftClient.getInstance().getSoundManager().play(
+                            net.minecraft.client.sound.PositionedSoundInstance.master(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK, 1.5f)
+                    );
+                    *///?}
+                    return true;
+                }
+
+                if (this.store.isPinned(account)) {
+                    this.draggedIndex = clickedIndex;
                 }
 
                 long now = System.currentTimeMillis();
@@ -136,6 +224,7 @@ public class AltManagerScreen extends Screen {
                     this.store.select(account);
                     this.status = "";
                     lastClickIndex = -1;
+                    reconnectIfOnServer();
                     return true;
                 }
 
@@ -213,6 +302,23 @@ public class AltManagerScreen extends Screen {
                 && mouseY <= buttonTop + DELETE_BUTTON_SIZE;
     }
 
+    private boolean isPinButtonClicked(double mouseX, double mouseY, int accountIndex) {
+        int centerX = this.width / 2;
+        int panelWidth = getPanelWidth();
+        int listRight = centerX + panelWidth / 2;
+        int rowTop = getListTop() + (accountIndex - scrollOffset) * ROW_HEIGHT;
+        return isPinButtonHovered(mouseX, mouseY, listRight, rowTop);
+    }
+
+    private boolean isPinButtonHovered(double mouseX, double mouseY, int listRight, int rowTop) {
+        int buttonLeft = listRight - 34;
+        int buttonTop = rowTop + 5;
+        return mouseX >= buttonLeft
+                && mouseX <= buttonLeft + 12
+                && mouseY >= buttonTop
+                && mouseY <= buttonTop + 12;
+    }
+
     private int getListTop() {
         return getTop() + 64;
     }
@@ -235,6 +341,20 @@ public class AltManagerScreen extends Screen {
             scrollOffset = 0;
         } else if (scrollOffset > maxOffset) {
             scrollOffset = maxOffset;
+        }
+    }
+
+    private void reconnectIfOnServer() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        net.minecraft.client.network.ServerInfo serverInfo = client.getCurrentServerEntry();
+        if (serverInfo != null) {
+            net.minecraft.client.gui.screen.Screen parentScreen = new net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen(new net.minecraft.client.gui.screen.TitleScreen());
+            net.minecraft.client.network.ServerAddress serverAddress = net.minecraft.client.network.ServerAddress.parse(serverInfo.address);
+            //? if >=1.21.6 {
+            net.minecraft.client.gui.screen.multiplayer.ConnectScreen.connect(parentScreen, client, serverAddress, serverInfo, false, null);
+            //?} else {
+            /*net.minecraft.client.gui.screen.multiplayer.ConnectScreen.connect(parentScreen, client, serverAddress, serverInfo, false, null);
+            *///?}
         }
     }
 }
